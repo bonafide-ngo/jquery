@@ -20,8 +20,8 @@ async function runJSDOMTest( { title, folder } ) {
 		.replace( /@SCRIPT\b/, () => scriptSource );
 
 	const virtualConsole = new jsdom.VirtualConsole();
-	virtualConsole.sendTo( console );
-	virtualConsole.on( "assert", ( success, message ) => {
+	virtualConsole.forwardTo( console );
+	virtualConsole.on( "assert", ( success ) => {
 		if ( !success ) {
 			process.exitCode = 1;
 		}

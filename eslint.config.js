@@ -10,29 +10,10 @@ export default [
 		// See https://github.com/eslint/eslint/discussions/17412
 		ignores: [
 			"external",
-			"**/tmp",
-			"test/data/json_obj.js"
+			"tmp",
+			"test/data/json_obj.js",
+			"test/data/jquery-*.js"
 		]
-	},
-
-	{
-		files: [
-			"eslint.config.js",
-			"Gruntfile.cjs",
-			"test/bundler_smoke_tests/**/*",
-			"test/node_smoke_tests/**",
-			"test/promises_aplus_adapters/**",
-			"test/middleware-mockserver.cjs"
-		],
-		languageOptions: {
-			globals: {
-				...globals.node
-			}
-		},
-		rules: {
-			...jqueryConfig.rules,
-			strict: [ "error", "global" ]
-		}
 	},
 
 	// Source
@@ -42,6 +23,7 @@ export default [
 			import: importPlugin
 		},
 		languageOptions: {
+			ecmaVersion: 2015,
 
 			// The browser env is not enabled on purpose so that code takes
 			// all browser-only globals from window instead of assuming
@@ -77,12 +59,11 @@ export default [
 			// 		ignoreExports: [ "{src/,}*.js" ]
 			// 	}
 			// ],
-			indent: [
+			indent: [ "error", "tab" ],
+			"no-implicit-globals": "error",
+			"no-unused-vars": [
 				"error",
-				"tab",
-				{
-					outerIIFEBody: 0
-				}
+				{ caughtErrorsIgnorePattern: "^_|^e$" }
 			],
 			"one-var": [ "error", { var: "always" } ],
 			strict: [ "error", "function" ]
@@ -159,10 +140,12 @@ export default [
 	// Tests
 	{
 		files: [
-			"test/**"
+			"test/*",
+			"test/data/**",
+			"test/integration/**",
+			"test/unit/**"
 		],
 		ignores: [
-			"test/data/jquery-3.7.1.js",
 			"test/data/badcall.js",
 			"test/data/badjson.js",
 			"test/data/support/csp.js",
@@ -170,6 +153,8 @@ export default [
 			"test/data/core/jquery-iterability-transpiled.js"
 		],
 		languageOptions: {
+			ecmaVersion: 5,
+			sourceType: "script",
 			globals: {
 				...globals.browser,
 				require: false,
@@ -186,65 +171,75 @@ export default [
 				moduleTeardown: false,
 				url: false,
 				q: false,
-				jQuery: true,
-				sinon: true,
-				amdDefined: true,
-				fireNative: true,
-				Globals: true,
-				hasPHP: true,
-				isLocal: true,
-				supportjQuery: true,
-				originaljQuery: true,
-				$: true,
-				original$: true,
-				baseURL: true,
-				externalHost: true
+				jQuery: false,
+				$: false,
+				sinon: false,
+				amdDefined: false,
+				fireNative: false,
+				Globals: false,
+				hasPHP: false,
+				isLocal: false,
+				supportjQuery: false,
+				originaljQuery: false,
+				original$: false,
+				baseURL: false,
+				externalHost: false
 			}
 		},
 		rules: {
 			...jqueryConfig.rules,
-			strict: [ "error", "function" ],
 
-			// See https://github.com/eslint/eslint/issues/2342
-			"no-unused-vars": "off",
+			"no-unused-vars": [
+				"error",
+				{
+					args: "after-used",
+					argsIgnorePattern: "^_",
+					caughtErrorsIgnorePattern: "^_|^e$"
+				}
+			],
 
 			// Too many errors
 			"max-len": "off",
-			camelcase: "off",
-			"one-var": "off"
+			camelcase: "off"
 		}
 	},
 
 	{
 		files: [
-			"test/runner/**/*.js"
+			"test/unit/core.js"
 		],
-		languageOptions: {
-			globals: {
-				...globals.node
-			},
-			sourceType: "module"
-		},
 		rules: {
-			...jqueryConfig.rules
-		}
-	},
 
-	{
-		files: [ "test/runner/listeners.js" ],
-		languageOptions: {
-			ecmaVersion: 5,
-			sourceType: "script"
+			// Core has several cases where unused vars are expected
+			"no-unused-vars": "off"
 		}
 	},
 
 	{
 		files: [
+			"test/data/testinit.js",
 			"test/data/testrunner.js",
 			"test/data/core/jquery-iterability-transpiled-es6.js"
 		],
 		languageOptions: {
-			sourceType: "script"
+			ecmaVersion: 2015,
+			sourceType: "script",
+			globals: {
+				...globals.browser
+			}
+		},
+		rules: {
+			...jqueryConfig.rules,
+			strict: [ "error", "function" ]
+		}
+	},
+
+	{
+		files: [
+			"test/data/testinit.js"
+		],
+		rules: {
+			strict: [ "error", "global" ]
 		}
 	},
 
@@ -261,46 +256,29 @@ export default [
 
 	{
 		files: [
-			"test/bundler_smoke_tests/**",
+			"eslint.config.js",
+			".release-it.cjs",
+			"build/**",
 			"test/node_smoke_tests/**",
+			"test/bundler_smoke_tests/**/*",
 			"test/promises_aplus_adapters/**",
 			"test/middleware-mockserver.cjs"
 		],
 		languageOptions: {
+			ecmaVersion: "latest",
 			globals: {
-				...globals.node,
-				...globals.es2021
-			}
-		},
-		rules: {
-			strict: [ "error", "global" ]
-		}
-	},
-
-	{
-		files: [
-			"build/**",
-			"test/data/testinit.js"
-		],
-		languageOptions: {
-			globals: {
-				...globals.node,
-				...globals.es2021
+				...globals.browser,
+				...globals.node
 			}
 		},
 		rules: {
 			...jqueryConfig.rules,
+			"no-implicit-globals": "error",
+			"no-unused-vars": [
+				"error",
+				{ caughtErrorsIgnorePattern: "^_|^e$" }
+			],
 			strict: [ "error", "global" ]
-		}
-	},
-
-	{
-		files: [
-			"build/**/*.js",
-			"test/data/testinit.js"
-		],
-		languageOptions: {
-			sourceType: "commonjs"
 		}
 	},
 
@@ -313,47 +291,101 @@ export default [
 			"dist-module/jquery.module.js",
 			"dist-module/jquery.slim.module.js",
 			"dist-module/jquery.factory.module.js",
-			"dist-module/jquery.factory.slim.module.js"
+			"dist-module/jquery.factory.slim.module.js",
+			"dist/wrappers/*.js",
+			"dist-module/wrappers/*.js"
 		],
-
 		languageOptions: {
+			ecmaVersion: 2015,
 			globals: {
-				...globals.es2021,
 				define: false,
 				module: false,
-				Symbol: false
-			}
-		}
-	},
-
-	{
-		files: [
-			"dist/jquery.bundler-require-wrapper.js",
-			"dist/jquery.bundler-require-wrapper.slim.js",
-			"dist-module/jquery.node-module-wrapper.js",
-			"dist-module/jquery.node-module-wrapper.slim.js"
-		],
-
-		languageOptions: {
-			globals: {
-				...globals.node,
-				...globals.es2021,
-				define: false,
-				module: false,
-				Symbol: false
+				Symbol: false,
+				window: false
 			}
 		},
-
 		rules: {
 			...jqueryConfig.rules,
 
+			"no-implicit-globals": "error",
+
 			// That is okay for the built version
 			"no-multiple-empty-lines": "off",
+
+			"no-unused-vars": [
+				"error",
+				{ caughtErrorsIgnorePattern: "^_|^e$" }
+			],
 
 			// When custom compilation is used, the version string
 			// can get large. Accept that in the built version.
 			"max-len": "off",
 			"one-var": "off"
+		}
+	},
+
+	{
+		files: [
+			"dist/jquery.slim.js",
+			"dist/jquery.factory.slim.js",
+			"dist-module/jquery.slim.module.js",
+			"dist-module/jquery.factory.slim.module.js"
+		],
+		rules: {
+
+			// Rollup is now smart enough to remove the use
+			// of parameters if the argument is not passed
+			// anywhere in the build.
+			// The removal of effects in the slim build
+			// results in some parameters not being used,
+			// which can be safely ignored.
+			"no-unused-vars": [
+				"error",
+				{ args: "none", caughtErrorsIgnorePattern: "^_|^e$" }
+			]
+		}
+	},
+
+	{
+		files: [
+			"src/wrapper.js",
+			"src/wrapper-factory.js",
+			"dist/jquery.factory.js",
+			"dist/jquery.factory.slim.js",
+			"test/middleware-mockserver.cjs"
+		],
+		rules: {
+			"no-implicit-globals": "off"
+		}
+	},
+
+	{
+		files: [
+			"dist/**"
+		],
+		languageOptions: {
+			ecmaVersion: 5,
+			sourceType: "script"
+		}
+	},
+
+	{
+		files: [
+			"dist-module/**"
+		],
+		languageOptions: {
+			ecmaVersion: 2015,
+			sourceType: "module"
+		}
+	},
+
+	{
+		files: [
+			"dist/wrappers/*.js"
+		],
+		languageOptions: {
+			ecmaVersion: 2015,
+			sourceType: "commonjs"
 		}
 	}
 ];

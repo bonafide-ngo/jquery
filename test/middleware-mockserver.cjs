@@ -8,6 +8,19 @@ const multiparty = require( "multiparty" );
 let cspLog = "";
 
 /**
+ * Like `readFileSync`, but on error returns "ERROR"
+ * without crashing.
+ * @param path
+ */
+function readFileSync( path ) {
+	try {
+		return fs.readFileSync( path );
+	} catch ( e ) {
+		return "ERROR";
+	}
+}
+
+/**
  * Keep in sync with /test/mock.php
  */
 function cleanCallback( callback ) {
@@ -143,7 +156,7 @@ const mocks = {
 	},
 	xmlOverJsonp: function( req, resp ) {
 		const callback = req.query.callback;
-		const body = fs.readFileSync( `${ __dirname }/data/with_fries.xml` ).toString();
+		const body = readFileSync( `${ __dirname }/data/with_fries.xml` ).toString();
 		resp.writeHead( 200 );
 		resp.end( `${ cleanCallback( callback ) }(${ JSON.stringify( body ) })\n` );
 	},
@@ -179,16 +192,7 @@ const mocks = {
 			"constructor": "prototype collision (constructor)"
 		};
 
-		// Use resp.append in express to
-		// avoid overwriting List-Header
-		if ( resp.append ) {
-
-			for ( const key in headers ) {
-				resp.append( key, headers[ key ] );
-			}
-		} else {
-			resp.writeHead( 200, headers );
-		}
+		resp.writeHead( 200, headers );
 		req.query.keys.split( "|" ).forEach( function( key ) {
 			if ( key.toLowerCase() in req.headers ) {
 				resp.write( `${ key }: ${ req.headers[ key.toLowerCase() ] }\n` );
@@ -245,10 +249,18 @@ const mocks = {
 		resp.writeHead( Number( req.query.code ) );
 		resp.end();
 	},
+	redirect: function( req, resp ) {
+		const target = req.query.target ||
+			"/test/data/mock.php?action=name&name=foo";
+		const code = Number( req.query.code ) || 302;
+		resp.writeHead( code, { "Location": target } );
+		resp.end();
+	},
 	testHTML: function( req, resp ) {
 		resp.writeHead( 200, { "Content-Type": "text/html" } );
-		const body = fs
-			.readFileSync( `${ __dirname }/data/test.include.html` )
+		const body = readFileSync(
+				`${ __dirname }/data/test.include.html`
+			)
 			.toString()
 			.replace( /{{baseURL}}/g, req.query.baseURL );
 		resp.end( body );
@@ -259,17 +271,19 @@ const mocks = {
 			"Content-Security-Policy": "default-src 'self'; require-trusted-types-for 'script'; " +
 				"report-uri /test/data/mock.php?action=cspLog"
 		} );
-		const body = fs.readFileSync( `${ __dirname }/data/csp.include.html` ).toString();
+		const body = readFileSync( `${ __dirname }/data/csp.include.html` ).toString();
 		resp.end( body );
 	},
 	cspNonce: function( req, resp ) {
-		const testParam = req.query.test ? `-${ req.query.test }` : "";
+		const testParam = req.query.test ?
+			`-${ req.query.test.replace( /[^a-z0-9]/gi, "" ) }` :
+			"";
 		resp.writeHead( 200, {
 			"Content-Type": "text/html",
 			"Content-Security-Policy": "script-src 'nonce-jquery+hardcoded+nonce'; " +
 				"report-uri /test/data/mock.php?action=cspLog"
 		} );
-		const body = fs.readFileSync(
+		const body = readFileSync(
 			`${ __dirname }/data/csp-nonce${ testParam }.html` ).toString();
 		resp.end( body );
 	},
@@ -279,7 +293,7 @@ const mocks = {
 			"Content-Security-Policy": "script-src 'self'; " +
 				"report-uri /test/data/mock.php?action=cspLog"
 		} );
-		const body = fs.readFileSync(
+		const body = readFileSync(
 			`${ __dirname }/data/csp-ajax-script.html` ).toString();
 		resp.end( body );
 	},
@@ -299,7 +313,7 @@ const mocks = {
 			"Content-Security-Policy": "require-trusted-types-for 'script'; " +
 				"report-uri /test/data/mock.php?action=cspLog"
 		} );
-		const body = fs.readFileSync( `${ __dirname }/data/trusted-html.html` ).toString();
+		const body = readFileSync( `${ __dirname }/data/trusted-html.html` ).toString();
 		resp.end( body );
 	},
 	trustedTypesAttributes: function( _req, resp ) {
@@ -308,8 +322,19 @@ const mocks = {
 			"Content-Security-Policy": "require-trusted-types-for 'script'; " +
 				"report-uri /test/data/mock.php?action=cspLog"
 		} );
-		const body = fs.readFileSync(
+		const body = readFileSync(
 			`${ __dirname }/data/trusted-types-attributes.html` ).toString();
+		resp.end( body );
+	},
+	xmlCss: function( _req, resp ) {
+		resp.writeHead( 200, { "Content-Type": "application/xml" } );
+		const body = readFileSync( `${ __dirname }/data/css/xmlDocCss.xhtml` ).toString();
+		resp.end( body );
+	},
+	xmlAjax: function( _req, resp ) {
+		resp.writeHead( 200, { "Content-Type": "application/xml" } );
+		const body = readFileSync(
+			`${ __dirname }/data/ajax/xmlDocCrossDomainDetection.xhtml` ).toString();
 		resp.end( body );
 	},
 	errorWithScript: function( req, resp ) {
@@ -348,11 +373,7 @@ const handlers = {
 
 /**
  * Connect-compatible middleware factory for mocking server responses.
- * Used by Ajax unit tests when run via Karma.
- *
- * Despite Karma using Express, it uses Connect to deal with custom middleware,
- * which passes the raw Node Request and Response objects instead of the
- * Express versions of these (e.g. no req.path, req.query, resp.set).
+ * Used by Ajax tests run in Node.
  */
 function MockserverMiddlewareFactory() {
 

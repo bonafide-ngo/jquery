@@ -109,8 +109,8 @@ QUnit.test( "element", function( assert ) {
 	}
 
 	assert.t( "Checking sort order", "#qunit-fixture p, #qunit-fixture p a",
-		[ "firstp", "simon1", "ap", "google", "groups", "anchor1", "mark", "sndp", "en", "yahoo",
-			"sap", "anchor2", "simon", "first" ] );
+		[ "firstp", "john1", "ap", "google", "groups", "anchor1", "mozilla", "sndp", "en", "yahoo",
+			"sap", "anchor2", "timmy", "first" ] );
 
 	// Test Conflict ID
 	lengthtest = document.getElementById( "lengthtest" );
@@ -146,11 +146,53 @@ QUnit.test( "element", function( assert ) {
 	assert.t( "Element name matches Object.prototype property", "toString#toString", [ "toString" ] );
 } );
 
+QUnit.test( "element - custom tag names (gh-3642)", function( assert ) {
+
+	assert.expect( QUnit.jQuerySelectors ? 8 : 4 );
+
+	var container,
+		tagData = [
+			{ name: "span", selector: "span" },
+			{ name: "my-component", selector: "my-component" },
+			{ name: "my-component.v2", selector: "my-component\\.v2" },
+			{
+				name: "a-\u00B7._.\u00B7-b\u0300\u0371\u2070\u2100" +
+					"\u2C00\u2F00\u3401\uF900\uFDF0\uD800\uDC00",
+
+				// Only the two dots need CSS escaping; all other characters
+				// are alphanumeric, `-`, `_`, or non-ASCII (>= U+0080).
+				selector: "a-\u00B7\\._\\.\u00B7-b\u0300\u0371\u2070\u2100" +
+					"\u2C00\u2F00\u3401\uF900\uFDF0\uD800\uDC00"
+			}
+		];
+
+	jQuery.each( tagData, function( _, tag ) {
+		container = jQuery(
+			"<div><" + tag.name + ">hello</" + tag.name + "></div>"
+		).appendTo( "#qunit-fixture" );
+
+		assert.strictEqual(
+			container.find( tag.selector ).length,
+			1,
+			"Tag name \"" + tag.name + "\": simple selector"
+		);
+
+		if ( QUnit.jQuerySelectors ) {
+			assert.strictEqual(
+				container.find( tag.selector + ":contains('')" ).length,
+				1,
+				"Tag name \"" + tag.name + "\": selector with a jQuery pseudo"
+			);
+		}
+	} );
+} );
+
 QUnit.test( "XML Document Selectors", function( assert ) {
-	assert.expect( 11 );
+	assert.expect( 12 );
 
 	var xml = createWithFriesXML();
 
+	assert.equal( jQuery( "qwerty", xml ).length, 1, "Element Selector (simple)" );
 	assert.equal( jQuery( "foo_bar", xml ).length, 1, "Element Selector with underscore" );
 	assert.equal( jQuery( ".component", xml ).length, 1, "Class selector" );
 	assert.equal( jQuery( "[class*=component]", xml ).length, 1, "Attribute selector for class" );
@@ -225,6 +267,77 @@ QUnit.test( "broken selectors throw", function( assert ) {
 	broken( "Attribute equals bad string", "input[name='apostrophe'd']" );
 } );
 
+QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ](
+	"lenient identifier parsing", function( assert ) {
+
+	// Test that jQuery identifier parsing is more lenient than
+	// querySelectorAll's. Note: this may change in a jQuery major
+	// version bump.
+
+	assert.expect( 9 );
+
+	// ID
+	assert.ok( jQuery( "#-0abc" ), "$( \"#-0abc\" ) did not throw" );
+	assert.ok( jQuery( "#0abc" ), "$( \"#0abc\" ) did not throw" );
+	assert.ok( jQuery( "#--0abc" ), "$( \"#--0abc\" ) did not throw" );
+
+	// Type
+	assert.ok( jQuery( "-0abc" ), "$( \"-0abc\" ) did not throw" );
+	assert.ok( jQuery( "0abc" ), "$( \"0abc\" ) did not throw" );
+	assert.ok( jQuery( "--0abc" ), "$( \"--0abc\" ) did not throw" );
+
+	// Class
+	assert.ok( jQuery( ".-0abc" ), "$( \".-0abc\" ) did not throw" );
+	assert.ok( jQuery( ".0abc" ), "$( \".0abc\" ) did not throw" );
+	assert.ok( jQuery( ".--0abc" ), "$( \".--0abc\" ) did not throw" );
+} );
+
+QUnit.test( "identifier ReDoS", function( assert ) {
+	assert.expect( 1 );
+
+	// 30 \a hex escapes followed by ! (invalid attr selector syntax).
+	// Naive implementations of the `<ident-token>` symbol:
+	// https://www.w3.org/TR/css-syntax-3/#ident-token-diagram
+	// could cause catastrophic backtracking, hanging the browser
+	// for over a minute.
+	//
+	// Support: IE 9 - 11+ only
+	// IE doesn't have String.prototype.repeat.
+	// 31 empty elements will produce 30 occurrences of the `join` parameter.
+	var selector = "[" + Array( 31 ).join( "\\a" ) + "!]",
+		start, elapsed;
+
+	start = Date.now();
+	try {
+		jQuery( selector );
+	} catch ( _e ) {}
+	elapsed = Date.now() - start;
+
+	assert.ok( elapsed < 1000,
+		"Pathological hex escape selector should not hang (took " + elapsed + "ms)" );
+} );
+
+QUnit.test( "double-dash identifier prefix", function( assert ) {
+	assert.expect( 5 );
+
+	var elem = jQuery( "<div id='--dd-id' class='--dd-class' --dd-attr='val'></div>" )
+		.appendTo( "#qunit-fixture" );
+
+	assert.equal( jQuery( "#--dd-id" ).length, 1,
+		"ID selector with -- prefix" );
+	assert.equal( jQuery( ".--dd-class" ).length, 1,
+		"Class selector with -- prefix" );
+	assert.equal( jQuery( "[--dd-attr]" ).length, 1,
+		"Attribute existence selector with -- prefix" );
+	assert.equal( jQuery( "[--dd-attr='val']" ).length, 1,
+		"Attribute equals selector with -- prefix" );
+
+	assert.equal( jQuery( "#qunit-fixture" ).find( "[--dd-attr]" ).length, 1,
+		"Attribute selector with -- prefix in .find()" );
+
+	elem.remove();
+} );
+
 QUnit.test( "id", function( assert ) {
 	assert.expect( 35 );
 
@@ -233,7 +346,7 @@ QUnit.test( "id", function( assert ) {
 	assert.t( "ID Selector", "#body", [ "body" ] );
 	assert.t( "ID Selector w/ Element", "body#body", [ "body" ] );
 	assert.t( "ID Selector w/ Element", "ul#first", [] );
-	assert.t( "ID selector with existing ID descendant", "#firstp #simon1", [ "simon1" ] );
+	assert.t( "ID selector with existing ID descendant", "#firstp #john1", [ "john1" ] );
 	assert.t( "ID selector with non-existent descendant", "#firstp #foobar", [] );
 	assert.t( "ID selector using UTF8", "#台北Táiběi", [ "台北Táiběi" ] );
 	assert.t( "Multiple ID selectors using UTF8", "#台北Táiběi, #台北", [ "台北Táiběi", "台北" ] );
@@ -307,19 +420,19 @@ QUnit.test( "class", function( assert ) {
 	assert.expect( 32 );
 
 	assert.deepEqual( jQuery( ".blog", document.getElementsByTagName( "p" ) ).get(),
-		q( "mark", "simon" ), "Finding elements with a context." );
+		q( "mozilla", "timmy" ), "Finding elements with a context." );
 	assert.deepEqual( jQuery( ".blog", "p" ).get(),
-		q( "mark", "simon" ), "Finding elements with a context." );
+		q( "mozilla", "timmy" ), "Finding elements with a context." );
 	assert.deepEqual( jQuery( ".blog", jQuery( "p" ) ).get(),
-		q( "mark", "simon" ), "Finding elements with a context." );
+		q( "mozilla", "timmy" ), "Finding elements with a context." );
 	assert.deepEqual( jQuery( "p" ).find( ".blog" ).get(),
-		q( "mark", "simon" ), "Finding elements with a context." );
+		q( "mozilla", "timmy" ), "Finding elements with a context." );
 
-	assert.t( "Class Selector", ".blog", [ "mark", "simon" ] );
+	assert.t( "Class Selector", ".blog", [ "mozilla", "timmy" ] );
 	assert.t( "Class Selector", ".GROUPS", [ "groups" ] );
-	assert.t( "Class Selector", ".blog.link", [ "simon" ] );
-	assert.t( "Class Selector w/ Element", "a.blog", [ "mark", "simon" ] );
-	assert.t( "Parent Class Selector", "p .blog", [ "mark", "simon" ] );
+	assert.t( "Class Selector", ".blog.link", [ "timmy" ] );
+	assert.t( "Class Selector w/ Element", "a.blog", [ "mozilla", "timmy" ] );
+	assert.t( "Parent Class Selector", "p .blog", [ "mozilla", "timmy" ] );
 
 	assert.t( "Class selector using UTF8", ".台北Táiběi", [ "utf8class1" ] );
 	assert.t( "Class selector using UTF8", ".台北", [ "utf8class1", "utf8class2" ] );
@@ -438,11 +551,11 @@ QUnit.test( "child and adjacent", function( assert ) {
 
 	var siblingFirst, en, nothiddendiv;
 
-	assert.t( "Child", "p > a", [ "simon1", "google", "groups", "mark", "yahoo", "simon" ] );
-	assert.t( "Child minus leading whitespace", "p> a", [ "simon1", "google", "groups", "mark", "yahoo", "simon" ] );
-	assert.t( "Child minus trailing whitespace", "p >a", [ "simon1", "google", "groups", "mark", "yahoo", "simon" ] );
-	assert.t( "Child minus whitespace", "p>a", [ "simon1", "google", "groups", "mark", "yahoo", "simon" ] );
-	assert.t( "Child w/ Class", "p > a.blog", [ "mark", "simon" ] );
+	assert.t( "Child", "p > a", [ "john1", "google", "groups", "mozilla", "yahoo", "timmy" ] );
+	assert.t( "Child minus leading whitespace", "p> a", [ "john1", "google", "groups", "mozilla", "yahoo", "timmy" ] );
+	assert.t( "Child minus trailing whitespace", "p >a", [ "john1", "google", "groups", "mozilla", "yahoo", "timmy" ] );
+	assert.t( "Child minus whitespace", "p>a", [ "john1", "google", "groups", "mozilla", "yahoo", "timmy" ] );
+	assert.t( "Child w/ Class", "p > a.blog", [ "mozilla", "timmy" ] );
 	assert.t( "All Children", "code > *", [ "anchor1", "anchor2" ] );
 	assert.selectInFixture( "All Grandchildren", "p > * > *", [ "anchor1", "anchor2" ] );
 
@@ -457,7 +570,7 @@ QUnit.test( "child and adjacent", function( assert ) {
 	assert.t( "#id adjacent", "#firstp + p", [ "ap" ] );
 	assert.t( "Tag#id adjacent", "p#firstp + p", [ "ap" ] );
 	assert.t( "Tag[attr] adjacent", "p[lang=en] + p", [ "sap" ] );
-	assert.t( "Tag.class adjacent", "a.GROUPS + code + a", [ "mark" ] );
+	assert.t( "Tag.class adjacent", "a.GROUPS + code + a", [ "mozilla" ] );
 	assert.t( "Comma, Child, and Adjacent", "#qunit-fixture a + a, code > a",
 		[ "groups", "anchor1", "anchor2", "tName2ID" ] );
 
@@ -465,7 +578,7 @@ QUnit.test( "child and adjacent", function( assert ) {
 		[ "foo", "nothiddendiv", "moretests", "tabindex-tests", "liveHandlerOrder", "siblingTest", "fx-test-group" ] );
 	assert.t( "Element Preceded By", "#first ~ div",
 		[ "moretests", "tabindex-tests", "liveHandlerOrder", "siblingTest", "fx-test-group" ] );
-	assert.t( "Element Preceded By", "#groups ~ a", [ "mark" ] );
+	assert.t( "Element Preceded By", "#groups ~ a", [ "mozilla" ] );
 	assert.t( "Element Preceded By", "#length ~ input", [ "idTest" ] );
 	assert.t( "Element Preceded By", "#siblingfirst ~ em", [ "siblingnext", "siblingthird" ] );
 	assert.t( "Element Preceded By (multiple)", "#siblingTest em ~ em ~ em ~ span", [ "siblingspan" ] );
@@ -545,10 +658,10 @@ QUnit.test( "attributes - equals", function( assert ) {
 
 	var withScript;
 
-	assert.t( "Identifier", "#qunit-fixture a[rel=bookmark]", [ "simon1" ] );
+	assert.t( "Identifier", "#qunit-fixture a[rel=bookmark]", [ "john1" ] );
 	assert.t( "Identifier with underscore", "input[id=types_all]", [ "types_all" ] );
-	assert.t( "String", "#qunit-fixture a[rel='bookmark']", [ "simon1" ] );
-	assert.t( "String (whitespace ignored)", "#qunit-fixture a[ rel = 'bookmark' ]", [ "simon1" ] );
+	assert.t( "String", "#qunit-fixture a[rel='bookmark']", [ "john1" ] );
+	assert.t( "String (whitespace ignored)", "#qunit-fixture a[ rel = 'bookmark' ]", [ "john1" ] );
 	assert.t( "Non-identifier string", "#qunit-fixture a[href='https://www.google.com/']", [ "google" ] );
 	assert.t( "Empty string", "#select1 option[value='']", [ "option1a" ] );
 
@@ -616,13 +729,13 @@ QUnit.test( "attributes - contains", function( assert ) {
 	assert.t( "string (whitespace ignored)", "a[href *= 'google']", [ "google", "groups" ] );
 	assert.t( "string like '[' ... ']']", "input[name*='[bar]']", [ "hidden2" ] );
 	assert.t( "string containing '['...']", "input[name*='foo[bar]']", [ "hidden2" ] );
-	assert.t( "href contains hash", "p a[href*='#']", [ "simon1", "anchor2" ] );
+	assert.t( "href contains hash", "p a[href*='#']", [ "john1", "anchor2" ] );
 } );
 
 QUnit.test( "attributes - ends with", function( assert ) {
 	assert.expect( 4 );
 
-	assert.t( "string (whitespace ignored)", "a[href $= 'org/']", [ "mark" ] );
+	assert.t( "string (whitespace ignored)", "a[href $= 'org/']", [ "mozilla" ] );
 	assert.t( "string ending with ']'", "input[name$='bar]']", [ "hidden2" ] );
 	assert.t( "string like '[' ... ']'", "input[name$='[bar]']", [ "hidden2" ] );
 	assert.t( "Attribute containing []", "input[name$='foo[bar]']", [ "hidden2" ] );
@@ -797,9 +910,9 @@ QUnit.test( "pseudo - (first|last|only)-(child|of-type)", function( assert ) {
 	assert.t( "First Child (case-insensitive)", "#qunit-fixture p:FIRST-CHILD", [ "firstp", "sndp" ] );
 
 	assert.t( "Last Child", "#qunit-fixture p:last-child", [ "sap" ] );
-	assert.t( "Last Child (leading id)", "#qunit-fixture a:last-child", [ "simon1", "anchor1", "mark", "yahoo", "anchor2", "simon", "liveLink1", "liveLink2" ] );
+	assert.t( "Last Child (leading id)", "#qunit-fixture a:last-child", [ "john1", "anchor1", "mozilla", "yahoo", "anchor2", "timmy", "liveLink1", "liveLink2" ] );
 
-	assert.t( "Only Child", "#qunit-fixture a:only-child", [ "simon1", "anchor1", "yahoo", "anchor2", "liveLink1", "liveLink2" ] );
+	assert.t( "Only Child", "#qunit-fixture a:only-child", [ "john1", "anchor1", "yahoo", "anchor2", "liveLink1", "liveLink2" ] );
 
 	assert.t( "First-of-type", "#qunit-fixture > p:first-of-type", [ "firstp" ] );
 	assert.t( "Last-of-type", "#qunit-fixture > p:last-of-type", [ "first" ] );
@@ -858,7 +971,7 @@ QUnit.test( "pseudo - nth-child", function( assert ) {
 		);
 	} else {
 
-		// Support: Chrome 75+, Firefox 67+
+		// Support: Chrome 75 - 133+, Firefox 67 - 135+
 		// Some browsers mark disconnected elements as matching `:nth-child(n)`
 		// so let's skip the test.
 		assert.ok( "skip", "disconnected elements match ':nth-child(n)' in Chrome/Firefox" );
@@ -912,7 +1025,7 @@ QUnit.test( "pseudo - nth-last-child", function( assert ) {
 		);
 	} else {
 
-		// Support: Chrome 75+, Firefox 67+
+		// Support: Chrome 75 - 133+, Firefox 67 - 135+
 		// Some browsers mark disconnected elements as matching `:nth-last-child(n)`
 		// so let's skip the test.
 		assert.ok( "skip", "disconnected elements match ':nth-last-child(n)' in Chrome/Firefox" );
@@ -922,13 +1035,13 @@ QUnit.test( "pseudo - nth-last-child", function( assert ) {
 QUnit.test( "pseudo - nth-of-type", function( assert ) {
 	assert.expect( 9 );
 	assert.t( "Nth-of-type(-1)", ":nth-of-type(-1)", [] );
-	assert.t( "Nth-of-type(3)", "#ap :nth-of-type(3)", [ "mark" ] );
-	assert.t( "Nth-of-type(n)", "#ap :nth-of-type(n)", [ "google", "groups", "code1", "anchor1", "mark" ] );
-	assert.t( "Nth-of-type(0n+3)", "#ap :nth-of-type(0n+3)", [ "mark" ] );
+	assert.t( "Nth-of-type(3)", "#ap :nth-of-type(3)", [ "mozilla" ] );
+	assert.t( "Nth-of-type(n)", "#ap :nth-of-type(n)", [ "google", "groups", "code1", "anchor1", "mozilla" ] );
+	assert.t( "Nth-of-type(0n+3)", "#ap :nth-of-type(0n+3)", [ "mozilla" ] );
 	assert.t( "Nth-of-type(2n)", "#ap :nth-of-type(2n)", [ "groups" ] );
 	assert.t( "Nth-of-type(even)", "#ap :nth-of-type(even)", [ "groups" ] );
-	assert.t( "Nth-of-type(2n+1)", "#ap :nth-of-type(2n+1)", [ "google", "code1", "anchor1", "mark" ] );
-	assert.t( "Nth-of-type(odd)", "#ap :nth-of-type(odd)", [ "google", "code1", "anchor1", "mark" ] );
+	assert.t( "Nth-of-type(2n+1)", "#ap :nth-of-type(2n+1)", [ "google", "code1", "anchor1", "mozilla" ] );
+	assert.t( "Nth-of-type(odd)", "#ap :nth-of-type(odd)", [ "google", "code1", "anchor1", "mozilla" ] );
 	assert.t( "Nth-of-type(-n+2)", "#qunit-fixture > :nth-of-type(-n+2)", [ "firstp", "ap", "foo", "nothiddendiv", "name+value", "firstUL", "empty", "form", "floatTest", "iframe", "lengthtest", "table", "last" ] );
 } );
 
@@ -936,12 +1049,12 @@ QUnit.test( "pseudo - nth-last-of-type", function( assert ) {
 	assert.expect( 9 );
 	assert.t( "Nth-last-of-type(-1)", ":nth-last-of-type(-1)", [] );
 	assert.t( "Nth-last-of-type(3)", "#ap :nth-last-of-type(3)", [ "google" ] );
-	assert.t( "Nth-last-of-type(n)", "#ap :nth-last-of-type(n)", [ "google", "groups", "code1", "anchor1", "mark" ] );
+	assert.t( "Nth-last-of-type(n)", "#ap :nth-last-of-type(n)", [ "google", "groups", "code1", "anchor1", "mozilla" ] );
 	assert.t( "Nth-last-of-type(0n+3)", "#ap :nth-last-of-type(0n+3)", [ "google" ] );
 	assert.t( "Nth-last-of-type(2n)", "#ap :nth-last-of-type(2n)", [ "groups" ] );
 	assert.t( "Nth-last-of-type(even)", "#ap :nth-last-of-type(even)", [ "groups" ] );
-	assert.t( "Nth-last-of-type(2n+1)", "#ap :nth-last-of-type(2n+1)", [ "google", "code1", "anchor1", "mark" ] );
-	assert.t( "Nth-last-of-type(odd)", "#ap :nth-last-of-type(odd)", [ "google", "code1", "anchor1", "mark" ] );
+	assert.t( "Nth-last-of-type(2n+1)", "#ap :nth-last-of-type(2n+1)", [ "google", "code1", "anchor1", "mozilla" ] );
+	assert.t( "Nth-last-of-type(odd)", "#ap :nth-last-of-type(odd)", [ "google", "code1", "anchor1", "mozilla" ] );
 	assert.t( "Nth-last-of-type(-n+2)", "#qunit-fixture > :nth-last-of-type(-n+2)", [ "ap", "name+value", "first", "firstUL", "empty", "floatTest", "iframe", "table", "testForm", "disabled-tests", "siblingTest", "fx-test-group", "last" ] );
 } );
 
@@ -954,7 +1067,7 @@ QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "pseudo - has", function( asse
 		"div:has(div:has(div:not([id])))",
 		[ "moretests", "t2037", "fx-test-group", "fx-queue" ] );
 
-	// Support: Safari 15.4+, Chrome 105+
+	// Support: Chrome 105 - 111 only, Safari 15.4 - 16.3 only
 	// `qSA` in Safari/Chrome throws for `:has()` with only unsupported arguments
 	// but if you add a supported arg to the list, it will run and just potentially
 	// return no results. Make sure this is accounted for. (gh-5098)
@@ -969,7 +1082,7 @@ QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "pseudo - contains", function(
 	assert.expect( 9 );
 
 	var gh335 = document.getElementById( "qunit-fixture" ).appendChild(
-		document.createElement( "mark" ) );
+		document.createElement( "mozilla" ) );
 	gh335.id = "gh-335";
 	gh335.appendChild( document.createTextNode( "raw line 1\nline 2" ) );
 
@@ -987,7 +1100,7 @@ QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "pseudo - contains", function(
 		"span:contains(\"\\\"'\\53F0 \\5317 Ta\\301 ibe\\30C i\")",
 		[ "utf8class1" ] );
 
-	assert.t( "collapsed whitespace", "mark:contains('line 1\\A line')", [ "gh-335" ] );
+	assert.t( "collapsed whitespace", "mozilla:contains('line 1\\A line')", [ "gh-335" ] );
 } );
 
 QUnit.test( "pseudo - misc", function( assert ) {
@@ -1107,8 +1220,8 @@ QUnit.test( "pseudo - misc", function( assert ) {
 	if ( QUnit.jQuerySelectors ) {
 
 		// Tokenization edge cases
-		assert.t( "Sequential pseudos", "#qunit-fixture p:has(:contains(mark)):has(code)", [ "ap" ] );
-		assert.t( "Sequential pseudos", "#qunit-fixture p:has(:contains(mark)):has(code):contains(This link)", [ "ap" ] );
+		assert.t( "Sequential pseudos", "#qunit-fixture p:has(:contains(mozilla)):has(code)", [ "ap" ] );
+		assert.t( "Sequential pseudos", "#qunit-fixture p:has(:contains(mozilla)):has(code):contains(This link)", [ "ap" ] );
 
 		assert.t( "Pseudo argument containing ')'", "p:has(>a.GROUPS[src!=')'])", [ "ap" ] );
 		assert.t( "Pseudo argument containing ')'", "p:has(>a.GROUPS[src!=')'])", [ "ap" ] );
@@ -1118,7 +1231,7 @@ QUnit.test( "pseudo - misc", function( assert ) {
 		assert.t( "Multi-pseudo", "#ap:has(*), #ap:has(*)", [ "ap" ] );
 		assert.t( "Multi-pseudo with leading nonexistent id", "#nonexistent:has(*), #ap:has(*)", [ "ap" ] );
 
-		assert.t( "Tokenization stressor", "a[class*=blog]:not(:has(*, :contains(!)), :contains(!)), br:contains(]), p:contains(]):not(.qunit-source), :not(:empty):not(:parent):not(.qunit-source)", [ "ap", "mark", "yahoo", "simon" ] );
+		assert.t( "Tokenization stressor", "a[class*=blog]:not(:has(*, :contains(!)), :contains(!)), br:contains(]), p:contains(]):not(.qunit-source), :not(:empty):not(:parent):not(.qunit-source)", [ "ap", "mozilla", "yahoo", "timmy" ] );
 	} else {
 		assert.ok( "skip", ":has not supported in selector-native" );
 		assert.ok( "skip", ":has not supported in selector-native" );
@@ -1146,7 +1259,7 @@ QUnit.test( "pseudo - misc", function( assert ) {
 QUnit.test( "pseudo - :not", function( assert ) {
 	assert.expect( 43 );
 
-	assert.t( "Not", "a.blog:not(.link)", [ "mark" ] );
+	assert.t( "Not", "a.blog:not(.link)", [ "mozilla" ] );
 
 	if ( QUnit.jQuerySelectors ) {
 		assert.t( "Not - multiple", "#form option:not(:contains(Nothing),#option1b,:selected)", [ "option1c", "option1d", "option2b", "option2c", "option3d", "option3e", "option4e", "option5b", "option5c" ] );
@@ -1157,7 +1270,7 @@ QUnit.test( "pseudo - :not", function( assert ) {
 	}
 
 	if ( QUnit.jQuerySelectorsPos ) {
-		assert.t( ":not() with :first", "#foo p:not(:first) .link", [ "simon" ] );
+		assert.t( ":not() with :first", "#foo p:not(:first) .link", [ "timmy" ] );
 	} else {
 		assert.ok( "skip", "Positional selectors are not supported" );
 	}
@@ -1537,7 +1650,17 @@ QUnit.test( "pseudo - :lang", function( assert ) {
 			assert.ok( jQuery( elem ).is( selector ), text + " match " + selector );
 		},
 		assertNoMatch = function( text, elem, selector ) {
-			assert.ok( !jQuery( elem ).is( selector ), text + " fail " + selector );
+
+			// Support: Chrome 141 only
+			// Chrome 141 incorrectly matches `:lang()` selectors with values with a trailing `-`.
+			// This is fixed in Chrome 142, so just skip these tests in v141.
+			// See https://issues.chromium.org/issues/451355198
+			if ( /\b(?:headless)?chrome\/141\./i.test( navigator.userAgent ) &&
+				selector.slice( -2 ) === "-)" ) {
+				assert.ok( true, "Broken handling in Chrome 141: " + text + " fail " + selector );
+			} else {
+				assert.ok( !jQuery( elem ).is( selector ), text + " fail " + selector );
+			}
 		};
 
 	// Prefixing and inheritance
@@ -1603,11 +1726,11 @@ QUnit.test( "pseudo - :lang", function( assert ) {
 } );
 
 QUnit.test( "context", function( assert ) {
-	assert.expect( 21 );
+	assert.expect( 22 );
 
 	var context,
 		selector = ".blog",
-		expected = q( "mark", "simon" ),
+		expected = q( "mozilla", "timmy" ),
 		iframe = document.getElementById( "iframe" ),
 		iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
 
@@ -1685,6 +1808,16 @@ QUnit.test( "context", function( assert ) {
 	} else {
 		assert.ok( "skip", ":has not supported in selector-native" );
 	}
+
+	context = document.createDocumentFragment();
+	context.appendChild( document.createElement( "em" ) );
+	context.appendChild( document.createElement( "span" ) );
+
+	assert.deepEqual(
+		jQuery( "~ span", context.firstChild ).get(),
+		[ context.lastChild ],
+		"DocumentFragment context: leading sibling combinator expands context to fragment"
+	);
 } );
 
 // Support: IE 11+
@@ -1725,15 +1858,15 @@ QUnit.test( "caching does not introduce bugs", function( assert ) {
 
 	jQuery( ":not(code)", document.getElementById( "ap" ) );
 	assert.deepEqual(
-		jQuery( ":not(code)", document.getElementById( "foo" ) ).get(),
-		q( "sndp", "en", "yahoo", "sap", "anchor2", "simon" ),
+		jQuery.find( ":not(code)", document.getElementById( "foo" ) ),
+		q( "sndp", "en", "yahoo", "sap", "anchor2", "timmy" ),
 		"Reusing selector with new context"
 	);
 
 	if ( QUnit.jQuerySelectorsPos ) {
 		assert.t( "Deep ancestry caching in post-positional element matcher (jQuery trac-14657)",
 			"#qunit-fixture a:lt(3):parent",
-			[ "simon1", "google", "groups" ] );
+			[ "john1", "google", "groups" ] );
 	} else {
 		assert.ok( "skip", "Positional selectors are not supported" );
 	}
@@ -2167,10 +2300,10 @@ QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "custom pseudos", function( as
 	assert.expect( 6 );
 
 	try {
-		jQuery.expr.filters.foundation = jQuery.expr.filters.root;
+		jQuery.expr.pseudos.foundation = jQuery.expr.pseudos.root;
 		assert.deepEqual( jQuery.find( ":foundation" ), [ document.documentElement ], "Copy element filter with new name" );
 	} finally {
-		delete jQuery.expr.filters.foundation;
+		delete jQuery.expr.pseudos.foundation;
 	}
 
 	try {
@@ -2181,25 +2314,25 @@ QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "custom pseudos", function( as
 	}
 
 	try {
-		jQuery.expr.filters.aristotlean = jQuery.expr.createPseudo( function() {
+		jQuery.expr.pseudos.aristotlean = jQuery.expr.createPseudo( function() {
 			return function( elem ) {
 				return !!elem.id;
 			};
 		} );
-		assert.t( "Custom element filter", "#foo :aristotlean", [ "sndp", "en", "yahoo", "sap", "anchor2", "simon" ] );
+		assert.t( "Custom element filter", "#foo :aristotlean", [ "sndp", "en", "yahoo", "sap", "anchor2", "timmy" ] );
 	} finally {
-		delete jQuery.expr.filters.aristotlean;
+		delete jQuery.expr.pseudos.aristotlean;
 	}
 
 	try {
-		jQuery.expr.filters.endswith = jQuery.expr.createPseudo( function( text ) {
+		jQuery.expr.pseudos.endswith = jQuery.expr.createPseudo( function( text ) {
 			return function( elem ) {
 				return jQuery.text( elem ).slice( -text.length ) === text;
 			};
 		} );
 		assert.t( "Custom element filter with argument", "a:endswith(ogle)", [ "google" ] );
 	} finally {
-		delete jQuery.expr.filters.endswith;
+		delete jQuery.expr.pseudos.endswith;
 	}
 
 	try {
@@ -2213,7 +2346,7 @@ QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "custom pseudos", function( as
 		} );
 		assert.t( "Custom set filter", "#qunit-fixture p:second", [ "ap" ] );
 	} finally {
-		delete jQuery.expr.filters.second;
+		delete jQuery.expr.setFilters.second;
 	}
 
 	try {
@@ -2233,14 +2366,45 @@ QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "custom pseudos", function( as
 		} );
 		assert.t( "Custom set filter with argument", "#qunit-fixture p:slice(1:3)", [ "ap", "sndp" ] );
 	} finally {
-		delete jQuery.expr.filters.slice;
+		delete jQuery.expr.setFilters.slice;
 	}
+} );
+
+QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "custom attribute getters", function( assert ) {
+	assert.expect( 2 );
+
+	var original = jQuery.attrHooks.hreflang,
+		selector = "a:contains('mozilla')[hreflang='https://mozilla.org/en']";
+
+	try {
+		jQuery.attrHooks.hreflang = {
+			get: function( elem, name ) {
+				var href = elem.getAttribute( "href" ),
+					lang = elem.getAttribute( name );
+				return lang && ( href + lang );
+			}
+		};
+
+		assert.deepEqual(
+			jQuery.find( selector, createWithFriesXML() ),
+			[],
+			"Custom attrHooks (preferred document)"
+		);
+		assert.t( "Custom attrHooks (preferred document)", selector, [ "mozilla" ] );
+	} finally {
+		jQuery.attrHooks.hreflang = original;
+	}
+} );
+QUnit[ QUnit.jQuerySelectors ? "test" : "skip" ]( "Ensure no 'undefined' handler is added", function( assert ) {
+	assert.expect( 1 );
+	assert.ok( !jQuery.attrHooks.hasOwnProperty( "undefined" ),
+		"Extra attr handlers are not added to jQuery.attrHooks (https://github.com/jquery/sizzle/issues/353)" );
 } );
 
 QUnit.test( "jQuery.find.matchesSelector", function( assert ) {
 	assert.expect( 15 );
 
-	var link = document.getElementById( "simon1" ),
+	var link = document.getElementById( "john1" ),
 		input = document.getElementById( "text1" ),
 		option = document.getElementById( "option1a" ),
 		disconnected = document.createElement( "div" );

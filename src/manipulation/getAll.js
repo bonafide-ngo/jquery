@@ -7,10 +7,11 @@ export function getAll( context, tag ) {
 	// Use typeof to avoid zero-argument method invocation on host objects (trac-15151)
 	var ret;
 
-	if ( typeof context.getElementsByTagName !== "undefined" ) {
-		ret = context.getElementsByTagName( tag || "*" );
+	if ( typeof context.querySelectorAll !== "undefined" ) {
 
-	} else if ( typeof context.querySelectorAll !== "undefined" ) {
+		// Note: we don't escape the tag here as we only pass
+		// ones that don't require escaping. As soon as that changes,
+		// wrap `tag` with `jQuery.escapeSelector`.
 		ret = context.querySelectorAll( tag || "*" );
 
 	} else {

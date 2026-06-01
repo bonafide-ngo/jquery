@@ -63,11 +63,11 @@ QUnit.test( "attr(String)", function( assert ) {
 	assert.equal( jQuery( "#text1" ).attr( "type" ), "text", "Check for type attribute" );
 	assert.equal( jQuery( "#radio1" ).attr( "type" ), "radio", "Check for type attribute" );
 	assert.equal( jQuery( "#check1" ).attr( "type" ), "checkbox", "Check for type attribute" );
-	assert.equal( jQuery( "#simon1" ).attr( "rel" ), "bookmark", "Check for rel attribute" );
+	assert.equal( jQuery( "#john1" ).attr( "rel" ), "bookmark", "Check for rel attribute" );
 	assert.equal( jQuery( "#google" ).attr( "title" ), "Google!", "Check for title attribute" );
-	assert.equal( jQuery( "#mark" ).attr( "hreflang" ), "en", "Check for hreflang attribute" );
+	assert.equal( jQuery( "#mozilla" ).attr( "hreflang" ), "en", "Check for hreflang attribute" );
 	assert.equal( jQuery( "#en" ).attr( "lang" ), "en", "Check for lang attribute" );
-	assert.equal( jQuery( "#simon" ).attr( "class" ), "blog link", "Check for class attribute" );
+	assert.equal( jQuery( "#timmy" ).attr( "class" ), "blog link", "Check for class attribute" );
 	assert.equal( jQuery( "#name" ).attr( "name" ), "name", "Check for name attribute" );
 	assert.equal( jQuery( "#text1" ).attr( "name" ), "action", "Check for name attribute" );
 	assert.ok( jQuery( "#form" ).attr( "action" ).indexOf( "formaction" ) >= 0, "Check for action attribute" );
@@ -261,7 +261,7 @@ QUnit.test( "attr(String, Object)", function( assert ) {
 
 	var $input, $text, $details,
 		attributeNode, commentNode, textNode, obj,
-		table, td, j, type,
+		table, td, j,
 		check, thrown, button, $radio, $radios, $svg,
 		div = jQuery( "#qunit-fixture div" ).attr( "foo", "bar" ),
 		i = 0,
@@ -418,7 +418,6 @@ QUnit.test( "attr(String, Object)", function( assert ) {
 	j.removeAttr( "name" );
 
 	// Type
-	type = jQuery( "#check2" ).attr( "type" );
 	try {
 		jQuery( "#check2" ).attr( "type", "hidden" );
 		assert.ok( true, "No exception thrown on input type change" );
@@ -478,6 +477,24 @@ QUnit.test( "attr(String, Object)", function( assert ) {
 	assert.equal( typeof jQuery( "#name" ).attr( "maxlength", undefined ), "object", ".attr('attribute', undefined) is chainable (trac-5571)" );
 	assert.equal( jQuery( "#name" ).attr( "maxlength", undefined ).attr( "maxlength" ), "5", ".attr('attribute', undefined) does not change value (trac-5571)" );
 	assert.equal( jQuery( "#name" ).attr( "nonexisting", undefined ).attr( "nonexisting" ), undefined, ".attr('attribute', undefined) does not create attribute (trac-5571)" );
+} );
+
+QUnit.test( "attr( previously-boolean-attr, non-boolean-value)", function( assert ) {
+	assert.expect( 3 );
+
+	var div = jQuery( "<div></div>" ).appendTo( "#qunit-fixture" );
+
+	div.attr( "hidden", "foo" );
+	assert.strictEqual( div.attr( "hidden" ), "foo",
+		"Values not normalized for previously-boolean hidden attribute" );
+
+	div.attr( "hidden", "until-found" );
+	assert.strictEqual( div.attr( "hidden" ), "until-found",
+		"`until-found` value preserved for hidden attribute" );
+
+	div.attr( "hiDdeN", "uNtil-fOund" );
+	assert.strictEqual( div.attr( "hidden" ), "uNtil-fOund",
+		"`uNtil-fOund` different casing preserved" );
 } );
 
 QUnit.test( "attr(non-ASCII)", function( assert ) {

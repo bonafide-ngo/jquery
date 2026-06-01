@@ -1438,10 +1438,17 @@ QUnit.test( "Submit event can be stopped (trac-11049)", function( assert ) {
 	form.remove();
 } );
 
-// Support: iOS <=7 - 12+
+// Support: iOS <=7 - 26+
 // iOS has the window.onbeforeunload field but doesn't support the beforeunload
 // handler making it impossible to feature-detect the support.
-QUnit[ /(ipad|iphone|ipod)/i.test( navigator.userAgent ) ? "skip" : "test" ](
+QUnit[
+	/iphone os/i.test( navigator.userAgent ) || (
+		/\bversion\/\d+(?:\.\d+)+ safari/i.test( navigator.userAgent ) &&
+			navigator.maxTouchPoints > 1
+	) ?
+		"skip" :
+		"test"
+](
 	"on(beforeunload)", function( assert ) {
 	assert.expect( 1 );
 	var iframe = jQuery( jQuery.parseHTML( "<iframe src='" + baseURL + "event/onbeforeunload.html'><iframe>" ) );
@@ -1672,9 +1679,9 @@ QUnit.test( ".on()/.off()", function( assert ) {
 
 	// Test binding with different this object, event data, and trigger data
 	jQuery( "#body" ).on( "click", "#foo", true, function( e, data ) {
-		assert.equal( e.data, true, "on with with different this object, event data, and trigger data" );
-		assert.equal( this.foo, "bar", "on with with different this object, event data, and trigger data" );
-		assert.equal( data, true, "on with with different this object, event data, and trigger data" );
+		assert.equal( e.data, true, "on with different this object, event data, and trigger data" );
+		assert.equal( this.foo, "bar", "on with different this object, event data, and trigger data" );
+		assert.equal( data, true, "on with different this object, event data, and trigger data" );
 	}.bind( { "foo": "bar" } ) );
 	jQuery( "#foo" ).trigger( "click", true );
 	jQuery( "#body" ).off( "click", "#foo" );
@@ -2698,7 +2705,6 @@ testIframe(
 		assert.expect( 1 );
 
 		var done = assert.async(),
-			focus = false,
 			input = jQuery( frameDoc ).find( "#frame-input" );
 
 		// Create a focusin handler on the parent; shouldn't affect the iframe's fate
@@ -2708,7 +2714,7 @@ testIframe(
 			// IE does propagate the event to the parent document. In this test
 			// we mainly care about the inner element so we'll just skip this one
 			// assertion in IE.
-			if ( !document.documentMode ) {
+			if ( !QUnit.isIE ) {
 				assert.ok( false, "fired a focusin event in the parent document" );
 			}
 		} );
@@ -3113,11 +3119,11 @@ QUnit.test(
 				spy.immediate = sinon.stub( event.originalEvent, "stopImmediatePropagation" );
 				event.stopImmediatePropagation();
 			} )
-			.on( "simulated", function( event ) {
+			.on( "simulated", function() {
 				assert.ok( false, "simulated event immediate propagation stopped" );
 			} );
 		outer
-			.on( "simulated", function( event ) {
+			.on( "simulated", function() {
 				assert.ok( false, "simulated event propagation stopped" );
 			} );
 
@@ -3180,8 +3186,7 @@ QUnit.test( "trigger('click') on radio passes extra params", function( assert ) 
 QUnit.test( "focusout/focusin support", function( assert ) {
 	assert.expect( 6 );
 
-	var focus,
-		parent = jQuery( "<div>" ),
+	var parent = jQuery( "<div>" ),
 		input = jQuery( "<input>" ),
 		inputExternal = jQuery( "<input>" );
 
